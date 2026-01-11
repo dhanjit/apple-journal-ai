@@ -1,0 +1,17 @@
+name: Trigger Blog Rebuild
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  trigger-rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Redeploy
+        if: env.VERCEL_DEPLOY_HOOK != ''
+        run: curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
