@@ -18,3 +18,15 @@ This is an append-only log. Never modify old entries.
 - 571 entries total
 - 16,836 words
 - Date range: 2021-2026
+
+---
+
+## 2026-01-11 (continued)
+
+**Added web app**
+
+- Built client-side web app for browser-based conversion
+- Drag-and-drop folder upload
+- Downloads: single `journal_full.md` or ZIP with per-year files
+- All processing happens in browser - data never leaves user's device
+- Deployed to GitHub Pages

@@ -2,6 +2,14 @@
 
 Export Apple Journal entries to markdown files for analysis via Claude Projects.
 
+## Web App
+
+**Try it online:** [https://dhanjit.github.io/apple-journal-ai](https://dhanjit.github.io/apple-journal-ai)
+
+- Drop your AppleJournalEntries folder
+- Download markdown instantly
+- 100% client-side - your data never leaves your browser
+
 ## Features
 
 - Parses Apple Journal HTML exports
@@ -10,7 +18,9 @@ Export Apple Journal entries to markdown files for analysis via Claude Projects.
 - Creates combined `journal_full.md` for easy upload
 - Outputs export statistics
 
-## Installation
+## CLI Usage
+
+For local command-line usage:
 
 ```bash
 # Clone repository
@@ -23,19 +33,10 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install beautifulsoup4 lxml
+
+# Run export
+python export.py
 ```
-
-## Usage
-
-1. Export your Apple Journal entries to `~/Documents/AppleJournalEntries/`
-
-2. Run the export script:
-   ```bash
-   source .venv/bin/activate
-   python export.py
-   ```
-
-3. Upload files from `output/` to Claude Projects
 
 ## Output
 
@@ -53,7 +54,8 @@ output/
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11+ (CLI)
+- Modern browser (Web App)
 - Apple Journal entries exported as HTML
 
 ## License

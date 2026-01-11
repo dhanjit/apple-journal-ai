@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Journal to Markdown</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Apple Journal to Markdown</h1>
+            <p class="subtitle">Convert your Apple Journal export to markdown for Claude Projects</p>
+        </header>
+
+        <main>
+            <div id="dropzone" class="dropzone">
+                <div class="dropzone-content">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <p class="dropzone-text">Drop your <strong>AppleJournalEntries</strong> folder here</p>
+                    <p class="dropzone-hint">or click to select folder</p>
+                    <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+                </div>
+            </div>
+
+            <div id="status" class="status hidden">
+                <div class="spinner"></div>
+                <p id="statusText">Processing...</p>
+            </div>
+
+            <div id="results" class="results hidden">
+                <div class="stats">
+                    <div class="stat">
+                        <span class="stat-value" id="entryCount">0</span>
+                        <span class="stat-label">Entries</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="wordCount">0</span>
+                        <span class="stat-label">Words</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="dateRange">-</span>
+                        <span class="stat-label">Date Range</span>
+                    </div>
+                </div>
+
+                <div class="downloads">
+                    <button id="downloadFull" class="btn btn-primary">
+                        Download journal_full.md
+                    </button>
+                    <button id="downloadZip" class="btn btn-secondary">
+                        Download All (ZIP)
+                    </button>
+                </div>
+
+                <button id="reset" class="btn btn-text">Process another folder</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Your data never leaves your browser.
+                <a href="https://github.com/dhanjit/apple-journal-ai" target="_blank">View source</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
