@@ -47,6 +47,7 @@
                     <button class="tab-btn active" data-tab="overview">Overview</button>
                     <button class="tab-btn" data-tab="timeline">Timeline</button>
                     <button class="tab-btn" data-tab="analytics">Analytics</button>
+                    <button class="tab-btn" data-tab="chat">Chat ✨</button>
                 </div>
 
                 <div id="overview-tab" class="tab-content active">
@@ -91,6 +92,35 @@
                 <div id="analytics-tab" class="tab-content">
                     <div class="chart-container">
                         <canvas id="moodChart"></canvas>
+                    </div>
+                </div>
+
+                <div id="chat-tab" class="tab-content">
+                    <div class="chat-container">
+                        <div id="chatHistory" class="chat-history">
+                            <div class="chat-message ai-message">
+                                <div class="message-content">
+                                    Hello! I'm your private journal assistant. I can help you find insights, summarize
+                                    entries, or answer questions about your journal. All processing happens right here
+                                    in your browser.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <div class="chat-input-wrapper">
+                                <textarea id="chatInput" placeholder="Ask about your journal..." rows="1"></textarea>
+                                <button id="sendChatBtn" class="btn-icon">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="aiStatus" class="ai-status hidden">
+                                <span class="status-dot"></span> <span id="aiStatusText">AI Ready</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
