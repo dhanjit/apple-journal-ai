@@ -1,5 +1,7 @@
 // State
 let processedData = null;
+let moodChart = null;
+let fileMap = new Map(); // Store all files for resource lookup
 
 // DOM Elements
 const dropzone = document.getElementById('dropzone');
@@ -13,6 +15,13 @@ const dateRange = document.getElementById('dateRange');
 const downloadFull = document.getElementById('downloadFull');
 const downloadZip = document.getElementById('downloadZip');
 const resetBtn = document.getElementById('reset');
+const timelineContainer = document.getElementById('timelineContainer');
+const moodChartCanvas = document.getElementById('moodChart');
+const showImagesToggle = document.getElementById('showImagesToggle');
+
+// Tabs
+const tabs = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
 
 // Event Listeners
 dropzone.addEventListener('click', () => folderInput.click());
@@ -23,6 +32,27 @@ folderInput.addEventListener('change', handleFolderSelect);
 downloadFull.addEventListener('click', handleDownloadFull);
 downloadZip.addEventListener('click', handleDownloadZip);
 resetBtn.addEventListener('click', handleReset);
+showImagesToggle.addEventListener('change', () => {
+    if (processedData) renderTimeline();
+});
+
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        // Deactivate all
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+
+        // Activate current
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        document.getElementById(`${target}-tab`).classList.add('active');
+
+        // Render chart if analytics tab
+        if (target === 'analytics' && processedData && !moodChart) {
+            renderCharts();
+        }
+    });
+});
 
 function handleDragOver(e) {
     e.preventDefault();
@@ -61,7 +91,6 @@ function handleFolderSelect(e) {
 async function collectFiles(entry, files, path = '') {
     if (entry.isFile) {
         const file = await new Promise(resolve => entry.file(resolve));
-        file.relativePath = path + entry.name;
         files.push(file);
     } else if (entry.isDirectory) {
         const reader = entry.createReader();
@@ -75,9 +104,17 @@ async function collectFiles(entry, files, path = '') {
 async function processFiles(files) {
     showStatus('Finding journal entries...');
 
+    // Clear and populate file map for resource lookup
+    fileMap.clear();
+    files.forEach(f => {
+        // Map by filename (approximate, might need better matching if duplicates exist)
+        // Apple Journal exports usually have unique IDs in filenames
+        fileMap.set(f.name, f);
+    });
+
     // Filter for HTML files in Entries folder
     const htmlFiles = files.filter(f => {
-        const path = f.relativePath || f.webkitRelativePath || f.name;
+        const path = f.webkitRelativePath || f.relativePath || f.name;
         return path.includes('Entries/') && path.endsWith('.html');
     });
 
@@ -98,8 +135,8 @@ async function processFiles(files) {
         }
     }
 
-    // Sort by date
-    entries.sort((a, b) => a.date.localeCompare(b.date));
+    // Sort by date (newest first for timeline)
+    entries.sort((a, b) => b.date.localeCompare(a.date));
 
     // Group by year
     const byYear = {};
@@ -127,6 +164,7 @@ async function processFiles(files) {
         }
     };
 
+    renderTimeline();
     showResults();
 }
 
@@ -142,11 +180,42 @@ async function parseEntry(file) {
     if (!dateMatch) return null;
     const date = dateMatch[1];
 
-    // Extract mood if present
+    // Extract Title
+    let title = 'Journal Entry';
+    const titleElem = doc.querySelector('.title span.s2') || doc.querySelector('.title');
+    if (titleElem) {
+        title = titleElem.textContent.trim();
+    }
+
+    // Extract mood details
     let mood = null;
-    const moodElem = doc.querySelector('.assetType_stateOfMind .gridItemOverlayHeader');
-    if (moodElem) {
-        mood = moodElem.textContent.trim();
+    let moodContext = null;
+    let moodColor = null;
+
+    const stateOfMind = doc.querySelector('.assetType_stateOfMind');
+    if (stateOfMind) {
+        const moodHeader = stateOfMind.querySelector('.gridItemOverlayHeader');
+        const moodFooter = stateOfMind.querySelector('.gridItemOverlayFooter');
+
+        if (moodHeader) mood = moodHeader.textContent.trim();
+        if (moodFooter) moodContext = moodFooter.textContent.trim();
+        moodColor = stateOfMind.style.backgroundColor;
+    }
+
+    // Extract First Image (Key Image)
+    let imageUrl = null;
+    try {
+        const img = doc.querySelector('.asset_image');
+        if (img) {
+            const src = img.getAttribute('src');
+            if (src) {
+                // src is usually "../Resources/FILENAME.EXT"
+                const imgFilename = src.split('/').pop();
+                imageUrl = imgFilename;
+            }
+        }
+    } catch (e) {
+        console.error('Image parsing error', e);
     }
 
     // Extract body text
@@ -160,21 +229,165 @@ async function parseEntry(file) {
         }
     }
 
-    if (paragraphs.length === 0) return null;
+    if (paragraphs.length === 0 && !mood && !imageUrl) return null;
 
     const content = paragraphs.join('\n\n');
     const wordCount = content.split(/\s+/).length;
 
-    return { date, mood, content, wordCount };
+    return {
+        date,
+        title,
+        mood,
+        moodContext,
+        moodColor,
+        imageUrl,
+        content,
+        wordCount
+    };
+}
+
+function renderTimeline() {
+    timelineContainer.innerHTML = '';
+    const showImages = showImagesToggle.checked;
+
+    // Filter entries that have mood or significant content? 
+    // Let's show all, but highlight moods.
+    const timelineEntries = processedData.entries; // Already sorted desc
+
+    if (timelineEntries.length === 0) {
+        timelineContainer.innerHTML = '<p style="text-align:center;color:#666;">No entries found.</p>';
+        return;
+    }
+
+    timelineEntries.forEach(entry => {
+        const dateObj = new Date(entry.date);
+        const dateStr = dateObj.toLocaleDateString('en-US', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+
+        const item = document.createElement('div');
+        item.className = 'timeline-item';
+
+        let moodBadgeHtml = '';
+        let dotColor = '#fff';
+
+        if (entry.mood) {
+            const bgColor = entry.moodColor || '#E3E9FC';
+            dotColor = bgColor;
+            // Calculate text color based on background mostly light so black is safe
+            moodBadgeHtml = `
+                <div class="mood-badge" style="background:${bgColor}">
+                    ${entry.mood}
+                    <span class="mood-context">${entry.moodContext || ''}</span>
+                </div>
+            `;
+        }
+
+        let imageHtml = '';
+        if (showImages && entry.imageUrl) {
+            const file = fileMap.get(entry.imageUrl);
+            if (file) {
+                const url = URL.createObjectURL(file);
+                imageHtml = `
+                    <div class="timeline-image">
+                        <img src="${url}" loading="lazy" alt="Entry image">
+                    </div>
+                `;
+            }
+        }
+
+        item.innerHTML = `
+            <div class="timeline-dot" style="background:${dotColor}"></div>
+            <div class="timeline-date">${dateStr}</div>
+            <div class="timeline-card">
+                <div class="timeline-title">${entry.title}</div>
+                <div class="timeline-preview" style="color:#888;font-size:0.9rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">
+                    ${entry.content}
+                </div>
+                ${moodBadgeHtml}
+                ${imageHtml}
+            </div>
+        `;
+
+        timelineContainer.appendChild(item);
+    });
+}
+
+function renderCharts() {
+    if (moodChart) {
+        moodChart.destroy();
+    }
+
+    const moodCounts = {};
+    processedData.entries.forEach(e => {
+        if (e.mood) {
+            moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1;
+        }
+    });
+
+    const labels = Object.keys(moodCounts);
+    const data = Object.values(moodCounts);
+
+    if (labels.length === 0) return;
+
+    // Sort by count
+    const sorted = labels.map((label, i) => ({ label, count: data[i] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10); // Top 10
+
+    const ctx = moodChartCanvas.getContext('2d');
+
+    moodChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(i => i.label),
+            datasets: [{
+                label: 'Top Moods',
+                data: sorted.map(i => i.count),
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                borderColor: 'rgba(255, 255, 255, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#333' },
+                    ticks: { color: '#888' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#888' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
 }
 
 function generateMarkdown(entries, title = 'Complete Journal') {
     let md = `# ${title}\n\n`;
 
-    for (const entry of entries) {
+    // Sort ascending for export (book style)
+    const exportEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const entry of exportEntries) {
         md += `## ${entry.date}\n`;
+        if (entry.title && entry.title !== 'Journal Entry') {
+            md += `### ${entry.title}\n`;
+        }
         if (entry.mood) {
-            md += `*Mood: ${entry.mood}*\n`;
+            md += `*Mood: ${entry.mood}`;
+            if (entry.moodContext) md += ` (${entry.moodContext})`;
+            md += `*\n`;
         }
         md += `\n${entry.content}\n\n---\n\n`;
     }
@@ -205,6 +418,9 @@ function handleReset() {
     dropzone.classList.remove('hidden');
     status.classList.add('hidden');
     results.classList.add('hidden');
+
+    // Reset tabs
+    document.querySelector('[data-tab="overview"]').click();
 }
 
 function handleDownloadFull() {
