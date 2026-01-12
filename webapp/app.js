@@ -499,7 +499,7 @@ async function initAIChat() {
 
     if (!window.ai) {
         updateAIStatus('error', 'AI Not Supported');
-        addMessage('system', '❌ <strong>AI Not Detected</strong><br>It looks like your browser doesn\'t support the Prompt API.<br><br>Please verify:<br>1. You have enabled <code>chrome://flags/#prompt-api-for-gemini-nano</code><br>2. You have enabled <code>chrome://flags/#optimization-guide-on-device-model</code>');
+        addMessage('system', '❌ <strong>AI Not Detected</strong><br>Browser does not support Prompt API.<br><button class="btn-text" onclick="window.runDiagnostics()">Run Diagnostics</button>');
         return;
     }
 
@@ -508,7 +508,7 @@ async function initAIChat() {
 
         if (capability.available === 'no') {
             updateAIStatus('error', 'Model Not Ready');
-            addMessage('system', '⚠️ <strong>Model Not Ready</strong><br>The AI model is not downloaded or available on this device yet.<br>Check <code>chrome://components</code> for "Optimization Guide On Device Model".');
+            addMessage('system', '⚠️ <strong>Model Not Ready</strong><br>AI model is not available on this device.<br><button class="btn-text" onclick="window.runDiagnostics()">Run Diagnostics</button>');
             return;
         }
 
@@ -647,3 +647,50 @@ function updateAIStatus(state, text) {
     if (state === 'loading') dot.classList.add('loading');
     if (state === 'error') dot.classList.add('error');
 }
+
+// Diagnostics
+window.runDiagnostics = async function () {
+    let report = '🔍 <strong>Diagnostic Report</strong><br>';
+
+    // 1. Check window.ai
+    if (!window.ai) {
+        report += '❌ window.ai is undefined.<br>';
+        report += '• Flags might not be applied (restart Chrome).<br>';
+        report += '• Browser version might be unsupported.<br>';
+    } else {
+        report += '✅ window.ai is available.<br>';
+
+        // 2. Check capabilities
+        try {
+            if (!window.ai.languageModel) {
+                report += '❌ window.ai.languageModel is undefined.<br>';
+            } else {
+                const cap = await window.ai.languageModel.capabilities();
+                report += `ℹ️ Availability: <strong>${cap.available}</strong><br>`;
+                report += `ℹ️ Default Temp: ${cap.defaultTemperature}<br>`;
+                report += `ℹ️ Default TopK: ${cap.defaultTopK}<br>`;
+
+                if (cap.available === 'no') {
+                    report += '⚠️ Model is not ready.<br>';
+                    report += '• Check chrome://components for "Optimization Guide On Device Model".<br>';
+                    report += '• Ensure it says a version number (e.g. 2024.x.x.x), not 0.0.0.0.<br>';
+                } else if (cap.available === 'after-download') {
+                    report += '⬇️ Model needs download.<br>';
+                    report += '• Triggering creation might force download.<br>';
+                } else {
+                    report += '✅ Model should be ready.<br>';
+                }
+            }
+        } catch (e) {
+            report += `❌ Error checking capabilities: ${e.message}<br>`;
+        }
+    }
+
+    addMessage('system', report);
+};
+
+// Expose checks for the button
+window.retryAI = function () {
+    aiAvailable = false;
+    initAIChat();
+};
