@@ -71,6 +71,7 @@ export default async function handler(req) {
             model: model,
             system: systemPrompt,
             messages: coreMessages,
+            maxRetries: 0, // Fail fast on rate limits (Free Tier)
         });
 
         // Encode string stream to byte stream for Response
