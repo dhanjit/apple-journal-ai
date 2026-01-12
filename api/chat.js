@@ -73,8 +73,10 @@ export default async function handler(req) {
             messages: coreMessages,
         });
 
-        // Manual text stream response
-        return new Response(result.textStream, {
+        // Encode string stream to byte stream for Response
+        const stream = result.textStream.pipeThrough(new TextEncoderStream());
+
+        return new Response(stream, {
             headers: {
                 'Content-Type': 'text/plain; charset=utf-8',
             },
