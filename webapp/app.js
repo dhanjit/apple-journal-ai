@@ -18,6 +18,12 @@ const resetBtn = document.getElementById('reset');
 const timelineContainer = document.getElementById('timelineContainer');
 const moodChartCanvas = document.getElementById('moodChart');
 const showImagesToggle = document.getElementById('showImagesToggle');
+// Chat Elements
+const chatInput = document.getElementById('chatInput');
+const sendChatBtn = document.getElementById('sendChatBtn');
+const chatHistory = document.getElementById('chatHistory');
+const aiStatus = document.getElementById('aiStatus');
+const aiStatusText = document.getElementById('aiStatusText');
 
 // Tabs
 const tabs = document.querySelectorAll('.tab-btn');
@@ -35,6 +41,14 @@ resetBtn.addEventListener('click', handleReset);
 showImagesToggle.addEventListener('change', () => {
     if (processedData) renderTimeline();
 });
+// Chat Listeners
+sendChatBtn.addEventListener('click', handleChatSubmit);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleChatSubmit();
+    }
+});
 
 tabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -50,6 +64,11 @@ tabs.forEach(tab => {
         // Render chart if analytics tab
         if (target === 'analytics' && processedData && !moodChart) {
             renderCharts();
+        }
+
+        // Initialize AI if chat tab
+        if (target === 'chat' && processedData) {
+            initAIChat();
         }
     });
 });
@@ -469,4 +488,162 @@ function downloadBlob(filename, blob) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+// AI Chat Logic
+let aiSession = null;
+let aiAvailable = false;
+
+async function initAIChat() {
+    if (aiAvailable) return;
+
+    if (!window.ai) {
+        updateAIStatus('error', 'AI Not Supported');
+        addMessage('system', '❌ <strong>AI Not Detected</strong><br>It looks like your browser doesn\'t support the Prompt API.<br><br>Please verify:<br>1. You are using Chrome Canary or Dev.<br>2. You have enabled <code>chrome://flags/#prompt-api-for-gemini-nano</code><br>3. You have enabled <code>chrome://flags/#optimization-guide-on-device-model</code>');
+        return;
+    }
+
+    try {
+        const capability = await window.ai.languageModel.capabilities();
+
+        if (capability.available === 'no') {
+            updateAIStatus('error', 'Model Not Ready');
+            addMessage('system', '⚠️ <strong>Model Not Ready</strong><br>The AI model is not downloaded or available on this device yet.<br>Check <code>chrome://components</code> for "Optimization Guide On Device Model".');
+            return;
+        }
+
+        updateAIStatus('loading', 'Initializing AI...');
+
+        // Prepare context from journal entries
+        const context = getJournalContext();
+        const systemPrompt = `You are a helpful, private journal assistant. 
+        Analyze the following journal entries to answer the user's questions. 
+        Be empathetic and insightful. 
+        Keep answers concise.
+        
+        Journal Entries:
+        ${context}`;
+
+        aiSession = await window.ai.languageModel.create({
+            systemPrompt: systemPrompt
+        });
+
+        aiAvailable = true;
+        updateAIStatus('ready', 'AI Ready');
+
+    } catch (e) {
+        console.error('AI Init Error:', e);
+        updateAIStatus('error', 'AI Init Failed');
+        addMessage('system', `Error initializing AI: ${e.message}`);
+    }
+}
+
+function getJournalContext() {
+    // Limit context to avoid token limits (approx 4 chars per token, safe limit ~3000 tokens for now)
+    // We'll take the most recent entries up to ~10k chars
+    let context = '';
+    const limit = 12000;
+
+    // Use sorted entries (newest first)
+    for (const entry of processedData.entries) {
+        const entryText = `Date: ${entry.date}\nMood: ${entry.mood || 'N/A'}\nContent: ${entry.content}\n\n`;
+        if (context.length + entryText.length > limit) break;
+        context += entryText;
+    }
+
+    return context;
+}
+
+async function handleChatSubmit() {
+    const text = chatInput.value.trim();
+    if (!text || !aiSession) return;
+
+    // Add user message
+    addMessage('user', text);
+    chatInput.value = '';
+
+    // Show typing indicator
+    const typingId = addTypingIndicator();
+
+    try {
+        const stream = await aiSession.promptStreaming(text);
+
+        let aiMsgElement = null;
+        let accumulatedText = '';
+
+        for await (const chunk of stream) {
+            // Remove typing indicator on first chunk
+            if (document.getElementById(typingId)) {
+                removeTypingIndicator(typingId);
+            }
+
+            accumulatedText = chunk;
+
+            if (!aiMsgElement) {
+                aiMsgElement = createMessageElement('ai', '');
+                chatHistory.appendChild(aiMsgElement);
+            }
+
+            // Render markdown-like text (simple replacement for now)
+            aiMsgElement.querySelector('.message-content').innerHTML = formatAIResponse(accumulatedText);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+    } catch (e) {
+        if (document.getElementById(typingId)) removeTypingIndicator(typingId);
+        addMessage('error', 'Error generating response. Try again.');
+        console.error(e);
+    }
+}
+
+function addMessage(type, text) {
+    const el = createMessageElement(type, text);
+    chatHistory.appendChild(el);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+function createMessageElement(type, text) {
+    const div = document.createElement('div');
+    div.className = `chat-message ${type}-message`;
+    div.innerHTML = `<div class="message-content">${formatAIResponse(text)}</div>`;
+    return div;
+}
+
+function formatAIResponse(text) {
+    // Basic Markdown Formatting
+    let formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+    return formatted;
+}
+
+function addTypingIndicator() {
+    const id = 'typing-' + Date.now();
+    const div = document.createElement('div');
+    div.id = id;
+    div.className = 'typing-indicator';
+    div.innerHTML = `
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+    `;
+    chatHistory.appendChild(div);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+    return id;
+}
+
+function removeTypingIndicator(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+function updateAIStatus(state, text) {
+    aiStatus.classList.remove('hidden');
+    aiStatusText.textContent = text;
+
+    const dot = aiStatus.querySelector('.status-dot');
+    dot.className = 'status-dot'; // reset
+    if (state === 'loading') dot.classList.add('loading');
+    if (state === 'error') dot.classList.add('error');
 }
