@@ -499,7 +499,7 @@ async function initAIChat() {
 
     if (!window.ai) {
         updateAIStatus('error', 'AI Not Supported');
-        addMessage('system', '❌ <strong>AI Not Detected</strong><br>It looks like your browser doesn\'t support the Prompt API.<br><br>Please verify:<br>1. You are using Chrome Canary or Dev.<br>2. You have enabled <code>chrome://flags/#prompt-api-for-gemini-nano</code><br>3. You have enabled <code>chrome://flags/#optimization-guide-on-device-model</code>');
+        addMessage('system', '❌ <strong>AI Not Detected</strong><br>It looks like your browser doesn\'t support the Prompt API.<br><br>Please verify:<br>1. You have enabled <code>chrome://flags/#prompt-api-for-gemini-nano</code><br>2. You have enabled <code>chrome://flags/#optimization-guide-on-device-model</code>');
         return;
     }
 
