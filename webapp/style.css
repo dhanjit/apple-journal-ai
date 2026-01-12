@@ -649,6 +649,15 @@ footer a:hover {
     border-bottom-left-radius: 4px;
 }
 
+.system-message {
+    align-self: center;
+    background: #2c1e1e;
+    color: #e5e5e5;
+    border: 1px solid #442a2a;
+    max-width: 90%;
+}
+
+
 .user-message {
     align-self: flex-end;
     background: #fff;

@@ -498,8 +498,8 @@ async function initAIChat() {
     if (aiAvailable) return;
 
     if (!window.ai) {
-        updateAIStatus('error', 'AI Not Supported (Chrome Canary required)');
-        addMessage('system', 'To use this feature, you need Chrome Canary/Dev with Experimental AI flags enabled. Go to chrome://flags/#prompt-api-for-gemini-nano');
+        updateAIStatus('error', 'AI Not Supported');
+        addMessage('system', '❌ <strong>AI Not Detected</strong><br>It looks like your browser doesn\'t support the Prompt API.<br><br>Please verify:<br>1. You are using Chrome Canary or Dev.<br>2. You have enabled <code>chrome://flags/#prompt-api-for-gemini-nano</code><br>3. You have enabled <code>chrome://flags/#optimization-guide-on-device-model</code>');
         return;
     }
 
@@ -507,8 +507,8 @@ async function initAIChat() {
         const capability = await window.ai.languageModel.capabilities();
 
         if (capability.available === 'no') {
-            updateAIStatus('error', 'AI Model Not Found');
-            addMessage('system', 'The AI model is not available on this device. Ensure you have free disk space and hardware acceleration.');
+            updateAIStatus('error', 'Model Not Ready');
+            addMessage('system', '⚠️ <strong>Model Not Ready</strong><br>The AI model is not downloaded or available on this device yet.<br>Check <code>chrome://components</code> for "Optimization Guide On Device Model".');
             return;
         }
 
