@@ -36,11 +36,14 @@ export default async function handler(req) {
         } else {
             // Use specific key for this project: JOURNAL_AI_GOOGLE_API_KEY
             // Fallback to standard GOOGLE_GENERATIVE_AI_API_KEY just in case
-            const googleKey = process.env.JOURNAL_AI_GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+            // Prioritize Gateway Key if present
+            const googleKey = process.env.JOURNAL_AI_VERCEL_AI_GATEWAY_API_KEY ||
+                process.env.JOURNAL_AI_GOOGLE_API_KEY ||
+                process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
             if (!googleKey) {
                 console.error("Missing Google API Key");
-                throw new Error("Missing Google API Key (JOURNAL_AI_GOOGLE_API_KEY)");
+                throw new Error("Missing Google API Key (JOURNAL_AI_GOOGLE_API_KEY or Gateway Key)");
             }
 
             // Configure Google Provider with optional Gateway URL
