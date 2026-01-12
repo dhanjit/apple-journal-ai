@@ -43,15 +43,17 @@ export default async function handler(req) {
                 throw new Error("Missing Google API Key (JOURNAL_AI_GOOGLE_API_KEY)");
             }
 
-            // Create a custom google instance if using a specific key
-            if (process.env.JOURNAL_AI_GOOGLE_API_KEY) {
-                const customGoogle = createGoogleGenerativeAI({
-                    apiKey: googleKey
-                });
-                model = customGoogle('gemini-2.0-flash');
-            } else {
-                model = google('gemini-2.0-flash');
+            // Configure Google Provider with optional Gateway URL
+            const googleConfig = {
+                apiKey: googleKey,
+            };
+
+            if (process.env.AI_GATEWAY_URL) {
+                googleConfig.baseURL = process.env.AI_GATEWAY_URL;
             }
+
+            const customGoogle = createGoogleGenerativeAI(googleConfig);
+            model = customGoogle('gemini-2.0-flash');
         }
 
         const systemPrompt = `You are a helpful, private journal assistant. 
