@@ -73,7 +73,7 @@ export default async function handler(req) {
             messages: coreMessages,
         });
 
-        return result.toDataStreamResponse();
+        return result.toTextStreamResponse();
     } catch (error) {
         console.error('Chat API Error:', error);
         return new Response(JSON.stringify({ error: error.message }), {
