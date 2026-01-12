@@ -1,9 +1,13 @@
-import { google } from '@ai-sdk/google';
+import { google, createGoogleGenerativeAI } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
-import { streamText, convertToCoreMessages } from 'ai';
+import { streamText } from 'ai';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+
+export const config = {
+    runtime: 'edge',
+};
 
 export default async function handler(req) {
     if (req.method !== 'POST') {
@@ -11,13 +15,22 @@ export default async function handler(req) {
     }
 
     try {
-        const { messages, context } = await req.json();
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 });
+        }
+
+        const { messages, context } = body;
 
         // Determine Provider: Default to Google (Free-ish Tier), allow Anthropic
         const providerName = process.env.AI_PROVIDER || 'google';
 
         let model;
         if (providerName === 'anthropic') {
+            const apiKey = process.env.ANTHROPIC_API_KEY;
+            if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY");
             // Check for specific Anthropic key if needed, or rely on default ANTHROPIC_API_KEY
             model = anthropic('claude-3-5-sonnet-20240620');
         } else {
@@ -25,9 +38,13 @@ export default async function handler(req) {
             // Fallback to standard GOOGLE_GENERATIVE_AI_API_KEY just in case
             const googleKey = process.env.JOURNAL_AI_GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
+            if (!googleKey) {
+                console.error("Missing Google API Key");
+                throw new Error("Missing Google API Key (JOURNAL_AI_GOOGLE_API_KEY)");
+            }
+
             // Create a custom google instance if using a specific key
             if (process.env.JOURNAL_AI_GOOGLE_API_KEY) {
-                const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
                 const customGoogle = createGoogleGenerativeAI({
                     apiKey: googleKey
                 });
@@ -43,12 +60,17 @@ export default async function handler(req) {
     Keep answers concise.
     
     Journal Entries Context:
-    ${context}`;
+    ${context || 'No context provided.'}`;
+
+        // Convert UI messages to Core messages manually to avoid import issues
+        // Ensure messages is an array
+        const msgArray = Array.isArray(messages) ? messages : [];
+        const coreMessages = msgArray.map(m => ({ role: m.role, content: m.content }));
 
         const result = await streamText({
             model: model,
             system: systemPrompt,
-            messages: convertToCoreMessages(messages),
+            messages: coreMessages,
         });
 
         return result.toDataStreamResponse();
