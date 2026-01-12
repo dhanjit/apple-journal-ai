@@ -8,9 +8,9 @@
         "build": "echo 'No build step for static app'"
     },
     "dependencies": {
-        "ai": "^3.0.0",
-        "@ai-sdk/google": "^0.0.1",
-        "@ai-sdk/anthropic": "^0.0.1",
+        "ai": "latest",
+        "@ai-sdk/google": "latest",
+        "@ai-sdk/anthropic": "latest",
         "zod": "^3.22.4"
     }
 }
