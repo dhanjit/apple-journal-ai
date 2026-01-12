@@ -48,9 +48,9 @@ export default async function handler(req) {
                 const customGoogle = createGoogleGenerativeAI({
                     apiKey: googleKey
                 });
-                model = customGoogle('gemini-1.5-flash');
+                model = customGoogle('gemini-2.0-flash');
             } else {
-                model = google('gemini-1.5-flash');
+                model = google('gemini-2.0-flash');
             }
         }
 
