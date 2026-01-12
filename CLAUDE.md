@@ -1,66 +1,28 @@
-# Apple Journal AI
+# CLAUDE.md
 
-## Overview
-
-A tool to export Apple Journal entries to markdown files for analysis via Claude Projects.
+## Commands
+- **Install Dependencies**: `npm install`
+- **Development**: `vercel dev` (runs frontend and API locally)
+- **Deploy**: `vercel deploy --prod`
+- **Frontend Only**: Open `webapp/index.html` in browser (API features won't work without Vercel)
 
 ## Architecture
+- **Frontend**: Vanilla HTML/CSS/JS located in `webapp/`.
+    - `app.js`: Core logic, UI handling, Local AI (`window.ai`), and Cloud AI integration.
+    - `style.css`: All application styling.
+- **Backend**: Vercel Serverless Functions in `api/`.
+    - `api/chat.js`: Edge Runtime function using Vercel AI SDK to stream responses from Google Gemini or Anthropic Claude.
+- **Data**: Parses Apple Journal export (HTML/text) completely client-side.
 
-```
-apple-journal-ai/
-├── export.py           # Main export script
-├── output/             # Generated markdown files (gitignored)
-│   ├── journal_YYYY.md # Per-year exports
-│   ├── journal_full.md # Complete journal
-│   └── stats.txt       # Export statistics
-└── .venv/              # Python virtual environment
-```
-
-## Setup
-
-```bash
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install beautifulsoup4 lxml
-```
-
-## Usage
-
-```bash
-# Activate environment and run export
-source .venv/bin/activate
-python export.py
-```
-
-Output files are created in `./output/` ready for Claude Projects upload.
-
-## Data Source
-
-- **Location**: `~/Documents/AppleJournalEntries/Entries/`
-- **Format**: HTML files named `YYYY-MM-DD.html`
-- **Content**: Personal journal entries with optional mood tags
-
-## Dependencies
-
-- Python 3.11+
-- beautifulsoup4
-- lxml
+## Tech Stack
+- **Runtime**: Node.js / Vercel Edge Runtime
+- **AI SDK**: `ai`, `@ai-sdk/google`, `@ai-sdk/anthropic`
+- **Validation**: `zod`
+- **Local AI**: Chrome Prompt API (`window.ai`)
 
 ## Code Style
-
-- Use type hints where practical
-- Keep functions focused and small
-- Use pathlib for file operations
-
-## Testing
-
-Currently manual testing only. Run export and verify output files.
-
-## Release Procedure
-
-Releases are automated via GitHub Actions on push to master:
-1. Merge changes to master
-2. GitHub Actions creates a release with auto-generated changelog
+- **JavaScript**: ES Modules (`import`/`export`). Modern ES6+ syntax (async/await, arrow functions).
+- **CSS**: Vanilla CSS, no preprocessors.
+- **Indentation**: 4 spaces.
+- **Formatting**: Semicolons used, single quotes preferred for strings.
+- **Error Handling**: API calls should return JSON error objects `{ error: "message" }`.
