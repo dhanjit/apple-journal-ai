@@ -84,6 +84,19 @@ export default async function handler(req) {
         });
     } catch (error) {
         console.error('Chat API Error:', error);
+
+        // Check for specific error types
+        const isQuotaError = error.status === 429 ||
+            (error.message && error.message.toLowerCase().includes('resource has been exhausted')) ||
+            (error.message && error.message.includes('429'));
+
+        if (isQuotaError) {
+            return new Response(JSON.stringify({ error: 'AI Usage Limit Exceeded (Free Tier). Please try again later.' }), {
+                status: 429,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
         return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }

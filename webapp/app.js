@@ -669,6 +669,9 @@ async function* streamCloudChat(userMessage) {
     });
 
     if (!response.ok) {
+        if (response.status === 429) {
+            throw new Error("⚠️ AI Quota Exceeded. Please try again later.");
+        }
         const err = await response.text();
         throw new Error(`Cloud API failed: ${err}`);
     }
