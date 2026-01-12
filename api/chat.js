@@ -18,9 +18,23 @@ export default async function handler(req) {
 
         let model;
         if (providerName === 'anthropic') {
+            // Check for specific Anthropic key if needed, or rely on default ANTHROPIC_API_KEY
             model = anthropic('claude-3-5-sonnet-20240620');
         } else {
-            model = google('gemini-1.5-flash');
+            // Use specific key for this project: JOURNAL_AI_GOOGLE_API_KEY
+            // Fallback to standard GOOGLE_GENERATIVE_AI_API_KEY just in case
+            const googleKey = process.env.JOURNAL_AI_GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+            // Create a custom google instance if using a specific key
+            if (process.env.JOURNAL_AI_GOOGLE_API_KEY) {
+                const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+                const customGoogle = createGoogleGenerativeAI({
+                    apiKey: googleKey
+                });
+                model = customGoogle('gemini-1.5-flash');
+            } else {
+                model = google('gemini-1.5-flash');
+            }
         }
 
         const systemPrompt = `You are a helpful, private journal assistant. 
