@@ -73,7 +73,12 @@ export default async function handler(req) {
             messages: coreMessages,
         });
 
-        return result.toTextStreamResponse();
+        // Manual text stream response
+        return new Response(result.textStream, {
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+            },
+        });
     } catch (error) {
         console.error('Chat API Error:', error);
         return new Response(JSON.stringify({ error: error.message }), {
