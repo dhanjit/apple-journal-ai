@@ -554,9 +554,53 @@ function getJournalContext() {
     return context;
 }
 
+// Cloud AI Logic
+let isCloudMode = false;
+const cloudModeToggle = document.getElementById('cloudModeToggle');
+const privacyBadge = document.getElementById('privacyBadge');
+
+if (cloudModeToggle) {
+    cloudModeToggle.addEventListener('click', (e) => { // Use click to prevent default if canceled
+        if (cloudModeToggle.checked) {
+            // Turning ON Cloud Mode
+            const confirmed = confirm("⚠️ Privacy Warning\n\nEnable Cloud Mode? This will send your journal entries to Google/Vercel servers for processing.\n\nData will leave your browser.");
+            if (!confirmed) {
+                e.preventDefault();
+                cloudModeToggle.checked = false;
+                return;
+            }
+        }
+
+        isCloudMode = cloudModeToggle.checked;
+        updatePrivacyBadge();
+        updateAIStatus('ready', isCloudMode ? 'Cloud Ready' : 'Local Ready');
+
+        addMessage('system', isCloudMode
+            ? '☁️ <strong>Switched to Cloud Mode</strong><br>Full journal context active. Data sent to secure servers.'
+            : '🔒 <strong>Switched to Local Mode</strong><br>Data stays in your browser.');
+    });
+}
+
+function updatePrivacyBadge() {
+    if (isCloudMode) {
+        privacyBadge.className = 'privacy-badge cloud';
+        privacyBadge.textContent = 'Processed in Cloud ☁️';
+    } else {
+        privacyBadge.className = 'privacy-badge private';
+        privacyBadge.textContent = 'Local Only 🔒';
+    }
+}
+
 async function handleChatSubmit() {
     const text = chatInput.value.trim();
-    if (!text || !aiSession) return;
+    if (!text) return;
+
+    // Check readiness
+    if (!isCloudMode && !aiSession && !aiAvailable) {
+        // Try to init if not ready
+        await initAIChat();
+        if (!aiSession) return;
+    }
 
     // Add user message
     addMessage('user', text);
@@ -566,7 +610,14 @@ async function handleChatSubmit() {
     const typingId = addTypingIndicator();
 
     try {
-        const stream = await aiSession.promptStreaming(text);
+        let stream;
+
+        if (isCloudMode) {
+            stream = await streamCloudChat(text);
+        } else {
+            if (!aiSession) throw new Error('Local AI not initialized');
+            stream = await aiSession.promptStreaming(text);
+        }
 
         let aiMsgElement = null;
         let accumulatedText = '';
@@ -577,22 +628,59 @@ async function handleChatSubmit() {
                 removeTypingIndicator(typingId);
             }
 
-            accumulatedText = chunk;
+            accumulatedText = isCloudMode ? (accumulatedText + chunk) : chunk; // defined differently?
+            // Wait, window.ai stream yields full text or chunks? 
+            // window.ai (Gemini Nano) usually yields the ACCUMULATED text so far in each chunk.
+            // Vercel AI SDK streams chunks (deltas).
+            // We need to handle this difference.
+
+            const displayText = isCloudMode ? accumulatedText : chunk;
 
             if (!aiMsgElement) {
                 aiMsgElement = createMessageElement('ai', '');
                 chatHistory.appendChild(aiMsgElement);
             }
 
-            // Render markdown-like text (simple replacement for now)
-            aiMsgElement.querySelector('.message-content').innerHTML = formatAIResponse(accumulatedText);
+            aiMsgElement.querySelector('.message-content').innerHTML = formatAIResponse(displayText);
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
     } catch (e) {
         if (document.getElementById(typingId)) removeTypingIndicator(typingId);
-        addMessage('error', 'Error generating response. Try again.');
+        addMessage('error', `Error: ${e.message}`);
         console.error(e);
+    }
+}
+
+async function* streamCloudChat(userMessage) {
+    // For Cloud Mode, we use the FULL MARKDOWN exported content as context
+    // This provides the AI with the complete journal in a structured format.
+    // Cloud models (Gemini Flash) have huge context windows (1M tokens).
+    const context = generateMarkdown(processedData.entries, 'User Journal Log');
+
+    const messages = [
+        { role: 'user', content: userMessage }
+    ];
+
+    const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, context })
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Cloud API failed: ${err}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        yield chunk;
     }
 }
 
